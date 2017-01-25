@@ -38,7 +38,7 @@ struct TinyObjLoaderEqualTo
 
 // Load an obj model with tinyobjloader
 // Obj models might use different set of indices per vertex. The default rendering mechanism of OpenGL does not support this feature to this functions duplicate attributes with different indices.
-void loadObj(const fs::path & objPath, const fs::path & mtlBaseDir, ObjData & data)
+void loadObj(const fs::path & objPath, const fs::path & mtlBaseDir, ObjData & data, bool loadTextures)
 {
     // Load obj
     std::vector<tinyobj::shape_t> shapes;
@@ -113,16 +113,14 @@ void loadObj(const fs::path & objPath, const fs::path & mtlBaseDir, ObjData & da
 
     std::unordered_map<std::string, int32_t> textureIdMap;
 
-    const auto textureIdOffset = data.textures.size();
-    for (const auto & texturePath : texturePaths)
+    if (loadTextures)
     {
-        if (!texturePath.empty())
+        const auto textureIdOffset = data.textures.size();
+        for (const auto & texturePath : texturePaths)
         {
-            auto newTexturePath = texturePath;
-            std::replace(begin(newTexturePath), end(newTexturePath), '\\', '/');
-            const auto completePath = mtlBaseDir / newTexturePath;
-            if (fs::exists(completePath))
+            if (!texturePath.empty())
             {
+<<<<<<< HEAD
                 std::clog << "Loading image " << completePath << std::endl;
                 data.textures.emplace_back(readImage(completePath));
                 data.textures.back().flipY();
@@ -134,6 +132,24 @@ void loadObj(const fs::path & objPath, const fs::path & mtlBaseDir, ObjData & da
             else
             {
                 std::clog << "'Warning: image " << completePath << " not found" << std::endl;
+=======
+                auto newTexturePath = texturePath;
+                std::replace(begin(newTexturePath), end(newTexturePath), '\\', '/');
+                const auto completePath = mtlBaseDir / newTexturePath;
+                if (fs::exists(completePath))
+                {
+                    std::clog << "Loading image " << completePath << std::endl;
+                    data.textures.emplace_back(readImage(completePath));
+                    data.textures.back().flipY();
+
+                    const auto localTexId = textureIdMap.size();
+                    textureIdMap[texturePath] = textureIdOffset + localTexId;
+                }
+                else
+                {
+                    std::clog << "'Warning: image " << completePath << " not found" << std::endl;
+                }
+>>>>>>> 4fbe90ef9d572c12f5923b9026b8f6bfdff63d5f
             }
         }
     }

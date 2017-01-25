@@ -21,6 +21,12 @@ private:
 
     void initShadersData();
 
+    void initGBuffer();
+
+    void initScreenTriangle();
+
+    void initShadowData();
+
     static glm::vec3 computeDirectionVector(float phiRadians, float thetaRadians)
     {
         const auto cosPhi = glm::cos(phiRadians);
@@ -29,9 +35,17 @@ private:
         return glm::vec3(sinPhi * sinTheta, glm::cos(thetaRadians), cosPhi * sinTheta);
     }
 
+    static glm::vec3 computeDirectionVectorUp(float phiRadians, float thetaRadians)
+    {
+        const auto cosPhi = glm::cos(phiRadians);
+        const auto sinPhi = glm::sin(phiRadians);
+        const auto cosTheta = glm::cos(thetaRadians);
+        return -glm::normalize(glm::vec3(sinPhi * cosTheta, -glm::sin(thetaRadians), cosPhi * cosTheta));
+    }
+
     const size_t m_nWindowWidth = 1280;
     const size_t m_nWindowHeight = 720;
-    glmlv::GLFWHandle m_GLFWHandle{ m_nWindowWidth, m_nWindowHeight, "Template" }; // Note: the handle must be declared before the creation of any object managing OpenGL resource (e.g. GLProgram, GLShader)
+    glmlv::GLFWHandle m_GLFWHandle{ m_nWindowWidth, m_nWindowHeight, "Shadow Mapping" }; // Note: the handle must be declared before the creation of any object managing OpenGL resource (e.g. GLProgram, GLShader)
 
     const glmlv::fs::path m_AppPath;
     const std::string m_AppName;
@@ -51,12 +65,25 @@ private:
         GBufferTextureCount
     };
 
-    const char * m_GBufferTexNames[GBufferTextureCount + 1] = { "position", "normal", "ambient", "diffuse", "glossyShininess", "depth", "beauty" }; // Tricks, since we cant blit depth, we use its value to draw the result of the shading pass
     const GLenum m_GBufferTextureFormat[GBufferTextureCount] = { GL_RGB32F, GL_RGB32F, GL_RGB32F, GL_RGB32F, GL_RGBA32F, GL_DEPTH_COMPONENT32F };
     GLuint m_GBufferTextures[GBufferTextureCount];
     GLuint m_GBufferFBO; // Framebuffer object
 
-    GBufferTextureType m_CurrentlyDisplayed = GBufferTextureCount; // Default to beauty
+    enum DisplayType
+    {
+        Display_Beauty,
+        Display_GPosition,
+        Display_GNormal,
+        Display_GAmbient,
+        Display_GDiffuse,
+        Display_GGlossyShininess,
+        Display_GDepth,
+        Display_DirectionalLightDepthMap,
+        Display_Count
+    };
+
+    const char * m_DisplayNames[Display_Count] = { "beauty", "position", "normal", "ambient", "diffuse", "glossyShininess", "depth", "directionalLightDepth" };
+    int32_t m_CurrentlyDisplayed = Display_Beauty;
 
     // Triangle covering the whole screen, for the shading pass:
     GLuint m_TriangleVBO = 0;
@@ -78,6 +105,7 @@ private:
     std::vector<ShapeInfo> m_shapes; // For each shape of the scene, its number of indices
     glm::vec3 m_SceneSize = glm::vec3(0.f); // Used for camera speed and projection matrix parameters
     float m_SceneSizeLength = 0.f;
+    glm::vec3 m_SceneCenter = glm::vec3(0.f);
 
     struct PhongMaterial
     {
@@ -127,6 +155,9 @@ private:
     GLint m_uDirectionalLightIntensityLocation;
     GLint m_uPointLightPositionLocation;
     GLint m_uPointLightIntensityLocation;
+    GLint m_uDirLightViewProjMatrix_shadingPass; // Suffix because the variable m_uDirLightViewProjMatrix is already used for the uniform of m_directionalSMProgram.
+    GLint m_uDirLightShadowMap;
+    GLint m_uDirLightShadowMapBias;
 
     // Display depth pass uniforms
     GLint m_uGDepthSamplerLocation;
@@ -136,14 +167,24 @@ private:
     GLint m_uSceneSizeLocation;
 
     // Lights
-    float m_DirLightPhiAngleDegrees = 140.f;
-    float m_DirLightThetaAngleDegrees = 45.f;
+    float m_DirLightPhiAngleDegrees = 100.f;
+    float m_DirLightThetaAngleDegrees = 30.f;
     glm::vec3 m_DirLightDirection = computeDirectionVector(glm::radians(m_DirLightPhiAngleDegrees), glm::radians(m_DirLightThetaAngleDegrees));
     glm::vec3 m_DirLightColor = glm::vec3(1, 1, 1);
-    float m_DirLightIntensity = 1.f;
+    float m_DirLightIntensity = 2.f;
+    float m_DirLightSMBias = 0.01f;
 
     glm::vec3 m_PointLightPosition = glm::vec3(0, 1, 0);
     glm::vec3 m_PointLightColor = glm::vec3(1, 1, 1);
-    float m_PointLightIntensity = 5.f;
+    float m_PointLightIntensity = 1.f;
 
+    // Shadow mapping data
+    glmlv::GLProgram m_directionalSMProgram;
+    GLint m_uDirLightViewProjMatrix;
+
+    GLuint m_directionalSMSampler;
+
+    GLuint m_directionalSMFBO;
+    GLuint m_directionalSMTexture;
+    int32_t m_nDirectionalSMResolution = 4096;
 };
